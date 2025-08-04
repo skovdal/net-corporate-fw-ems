@@ -1,18 +1,26 @@
 steps:
+  # This step deploys the application.
   - name: "gcr.io/cloud-builders/gcloud"
-    args: ["app", "deploy", "--no-cache", "--quiet"]
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "--- DEBUG: Starting deployment step ---"
+        gcloud app deploy --no-cache --quiet
+        echo "--- DEBUG: Deployment step finished ---"
 
+  # This step cleans up old, unused versions of the application.
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        echo "--- DEBUG: Starter oprydningstrin ---"
+        echo "--- DEBUG: Starting cleanup step ---"
 
-        echo "DEBUG: Henter versioner der skal slettes (alle undtagen den nyeste)..."
-        # Sorterer med nyeste først (--sort-by '~version').
-        # --format 'value(VERSION.ID)' giver kun version ID'er.
-        # 'tail -n +2' springer den første linje (den nyeste version) over.
+        echo "DEBUG: Fetching versions to delete (all except the newest)..."
+        # Sorts with the newest first (--sort-by '~version').
+        # --format 'value(VERSION.ID)' only provides version IDs.
+        # 'tail -n +2' skips the first line (the newest version).
         versions_to_delete=$(gcloud app versions list \
             --service default \
             --project "$PROJECT_ID" \
@@ -20,16 +28,16 @@ steps:
             --format 'value(VERSION.ID)' | tail -n +2)
 
         if [ -z "$versions_to_delete" ]; then
-          echo "DEBUG: Ingen gamle versioner fundet til sletning."
+          echo "DEBUG: No old versions found for deletion."
         else
-          echo "DEBUG: Følgende versioner vil blive forsøgt slettet:"
+          echo "DEBUG: The following versions will be attempted to be deleted:"
           echo "$versions_to_delete"
-          # Nedenstående linje udfører selve sletningen.
-          # -r optionen til xargs forhindrer kørsel hvis $versions_to_delete er tom.
+          # The line below performs the actual deletion.
+          # The -r option for xargs prevents execution if $versions_to_delete is empty.
           echo "$versions_to_delete" | xargs -r -I {} gcloud app versions delete {} --service default --project "$PROJECT_ID" --quiet
-          echo "DEBUG: Sletning af gamle versioner forsøgt."
+          echo "DEBUG: Deletion of old versions attempted."
         fi
-        echo "--- DEBUG: Oprydningstrin afsluttet ---"
+        echo "--- DEBUG: Cleanup step finished ---"
 
 options:
   logging: CLOUD_LOGGING_ONLY
